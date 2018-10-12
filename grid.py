@@ -12,6 +12,7 @@ class Parameters:
         self.dim_x = 10
         self.dim_y = 5 #HOW BIG IS THE ROVER WORLD
         self.action_dim = 4
+        self.nrover = 1
         self.T = 100
         self.nrollout = 10
         self.obs_radius = 15 #OBSERVABILITY FOR EACH ROVER
@@ -27,6 +28,7 @@ class Task_Rovers:
         self.params = parameters
         self.dim_x = parameters.dim_x
         self.dim_y = parameters.dim_y
+        self.nrover = parameters.nrover
         self.T = parameters.T
         self.nrollout = parameters.nrollout
         self.timestep = 0
@@ -35,7 +37,7 @@ class Task_Rovers:
         self.target_pos = [9, 3] # FORMAT: [item] = [x, y] coordinate
 
         # Initialize rover position container
-        self.rover_pos = [0, 0]     # Track rover's position
+        self.rover_pos = [[0, 0] for i in range(self.nrover)]     # Track rover's position
 
 
     def reset(self):
@@ -44,7 +46,9 @@ class Task_Rovers:
         while new_pos == [9, 3]:
             new_pos[0] = randint(0, self.dim_x - 1)
             new_pos[1] = randint(0, self.dim_y - 1)
-        self.rover_pos = new_pos
+        for i in range(self.nrover):
+            self.rover_pos[i] = new_pos
+
         # Reset Target
         self.target_pos = [9, 3]
         self.timestep = 0
@@ -77,25 +81,29 @@ class Task_Rovers:
         return move
 
     def check_goal(self):
-        if self.rover_pos == self.target_pos:
-            return True
-        else:
-            return False
+        for i in range(self.nrover):
+            if self.rover_pos[i] == self.target_pos:
+                return True
+        return False
 
-    def step(self, action):
+    def step(self, action, visual = False):
         self.timestep += 1
 
-        self.rover_pos = list(map(add, self.rover_pos, action))
+        for i in range(self.nrover):
+            self.rover_pos[i] = list(map(add, self.rover_pos[i], action[i]))
         # Check pos limits, make sure not out of bounds
-        if self.rover_pos[0] < 0:
-            self.rover_pos[0] = 0
-        if self.rover_pos[0] >= self.dim_x:
-            self.rover_pos[0] = self.dim_x - 1
-        if self.rover_pos[1] < 0:
-            self.rover_pos[1] = 0
-        if self.rover_pos[1] >= self.dim_y:
-            self.rover_pos[1] = self.dim_y - 1
+            if self.rover_pos[i][0] < 0:
+                self.rover_pos[i][0] = 0
+            if self.rover_pos[i][0] >= self.dim_x:
+                self.rover_pos[i][0] = self.dim_x - 1
+            if self.rover_pos[i][1] < 0:
+                self.rover_pos[i][1] = 0
+            if self.rover_pos[i][1] >= self.dim_y:
+                self.rover_pos[i][1] = self.dim_y - 1
         
+        if visual:
+            self.visualize()
+
         if self.check_goal():
             return True
 
@@ -108,19 +116,35 @@ class Task_Rovers:
 
     def reward(self):
         # reward = -1*self.timestep
-        reward = -1
-        if self.rover_pos == self.target_pos:
-            reward = 20
+        reward = np.zeros(self.nrover)
+        for i in range(self.nrover):
+            reward[i] = -1
+            if self.rover_pos[i] == self.target_pos:
+                reward[i] = 20
         return reward
+
+    def multireward(self):
+        indiv_rew = self.reward()
+        return [np.sum(indiv_rew) for i in range(self.nrover)]
 
     def visualize(self):
         grid = [['-' for _ in range(self.dim_x)] for _ in range(self.dim_y)]
+        
+        drone_symbol_bank = ['x', 'y']
+        for i in range(self.nrover):
+            x = int(self.rover_pos[i][0])
+            y = int(self.rover_pos[i][1])
+            #print x,y
+            symbol = drone_symbol_bank[i]
+            if self.nrover > 1 and (self.rover_pos[0] == self.rover_pos[1]):
+                symbol = 'xy'
+            grid[y][x] = symbol
 
-        # Draw in agengt
-        x = int(self.rover_pos[0])
-        y = int(self.rover_pos[1])
-        #print x,y
-        grid[y][x] = 'x'
+        # # Draw in agengt
+        # x = int(self.rover_pos[0])
+        # y = int(self.rover_pos[1])
+        # #print x,y
+        # grid[y][x] = 'x'
 
 
         # Draw in target
@@ -133,7 +157,7 @@ class Task_Rovers:
         grid[y][x] = "T"
 
         for row in grid:
-            print (row)
+            print(row)
         print()
 
     def render(self):
@@ -162,15 +186,39 @@ class Task_Rovers:
 
         print ('------------------------------------------------------------------------')
 
+    def run_eval(self, filename):
+        Qload = np.load(filename)
+        self.reset()
+        done = False
+        while not done:
+            self.visualize()
+            input()
+            action = [[0, 0] for i in range(self.nrover)]
+            for i in range(self.nrover):
+                actionVs = Qload[i][self.target_pos[0]*self.dim_x + self.rover_pos[i][0],
+                                        self.target_pos[1]*self.dim_y + self.rover_pos[i][1], :]
+                direct = np.argmax(actionVs)
+                action[i] = [-1, 0]
+                if direct == 0:
+                    action[i] = [0, 1]
+                elif direct == 1:
+                    action[i] = [1, 0]
+                elif direct == 2:
+                    action[i] = [0, -1]
+            done = self.step(action, True)
+        print("Captured target")
+
 if __name__ == '__main__':
     args = Parameters()
+    args.nrover = 2
     env = Task_Rovers(args)
     for i in range(20):
-        env.visualize()
-        updown = random.choice([0, 1])
-        leftright = random.choice([-1, 1])
-        act = [updown, leftright]
-        env.step(act)
+        # env.visualize()
+        # input()
+        # act0 = env.rand_action(env.rover_pos[0])
+        # act1 = env.rand_action(env.rover_pos[1])
+        # env.step([act0, act1])
+        env.run_eval('QtestMultiSum.npy')
 
 
 
