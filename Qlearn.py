@@ -95,8 +95,8 @@ class Qlearn:
                 # Get action according to current Q's and take step
                 direct, action = self.get_action(self.env.rover_pos, self.env.target_pos)
                 done = self.env.step(action)
-                # reward = self.env.reward()
-                reward = self.env.multireward()
+                reward = self.env.reward()
+                # reward = self.env.multireward()
                 # Save new positions
                 tar_new = self.env.get_target_pos()
                 for i in range(self.env.nrover):
@@ -123,18 +123,23 @@ class Qlearn:
                 
 
 if __name__ == '__main__':
-    t1 = time.time()
-    args = Parameters()
-    args.nrover = 1
-    print("Training enviroment with " + str(args.nrover) + " agents")
-    env = Task_Rovers(args)
-    learn = Qlearn(env)
-    eval_scores = learn.train(100000, "SingleSum.npy")
-    np.save("multi_eval.npy", eval_scores)
-    plt.plot(eval_scores)
+    # t1 = time.time()
+    # args = Parameters()
+    # args.nrover = 1
+    # print("Training enviroment with " + str(args.nrover) + " agents")
+    # env = Task_Rovers(args)
+    # learn = Qlearn(env)
+    # eval_scores = learn.train(100000, "SingleAgent.npy")
+    # np.save("multium_eval.npy", eval_scores)
+    data = np.load("multisum_eval.npy")
+    plt.title('Evaluation Curve for Multi-Agent Learning with Shared Rewards')
+    plt.xlabel('Interation x 100')
+    plt.ylabel('Avg Catch Time')
+    # plt.plot(eval_scores)
+    plt.plot(data)
     # plt.show()
     # plt.ylim(top=50)
-    plt.savefig("SingleAgent.png")
+    plt.savefig("MultiSumAgent.png")
     
 
 

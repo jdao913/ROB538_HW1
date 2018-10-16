@@ -4,6 +4,7 @@ from operator import add
 import numpy as np
 import math
 import time
+import matplotlib.pyplot as plt
 
 class Parameters:
     def __init__(self):
@@ -208,17 +209,49 @@ class Task_Rovers:
             done = self.step(action, True)
         print("Captured target")
 
+    def eval_hist(self, filename, histfile, niter = 100000):
+        Qload = np.load(filename)
+        times = np.zeros(niter)
+        for n in range(niter):
+            if n % 1000 == 0:
+                print("Iteration ", n)
+            self.reset()
+            done = False
+            while not done:
+                action = [[0, 0] for i in range(self.nrover)]
+                for i in range(self.nrover):
+                    actionVs = Qload[i][self.target_pos[0]*self.dim_x + self.rover_pos[i][0],
+                                            self.target_pos[1]*self.dim_y + self.rover_pos[i][1], :]
+                    direct = np.argmax(actionVs)
+                    action[i] = [-1, 0]
+                    if direct == 0:
+                        action[i] = [0, 1]
+                    elif direct == 1:
+                        action[i] = [1, 0]
+                    elif direct == 2:
+                        action[i] = [0, -1]
+                done = self.step(action)
+            times[n] = self.timestep
+        bins = np.linspace(0, 21, 22)
+        plt.title('Histogram of Multi Agent Shared Reward Catch Time')
+        plt.xlabel('Catch Time')
+        plt.ylabel('Frequency')
+        plt.hist(times, bins, histtype='bar', ec='black', alpha = .75)
+        plt.savefig(histfile)
+
+
 if __name__ == '__main__':
     args = Parameters()
-    args.nrover = 1
+    args.nrover = 2
     env = Task_Rovers(args)
-    for i in range(20):
+    # for i in range(20):
         # env.visualize()
         # input()
         # act0 = env.rand_action(env.rover_pos[0])
         # act1 = env.rand_action(env.rover_pos[1])
         # env.step([act0, act1])
-        env.run_eval('QtestMultiSum.npy')
+        # env.run_eval('MultiAgent.npy')
+    env.eval_hist('MultiSumAgent.npy', 'multisum_hist.png')
 
 
 
