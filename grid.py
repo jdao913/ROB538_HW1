@@ -210,7 +210,7 @@ class Task_Rovers:
 
 if __name__ == '__main__':
     args = Parameters()
-    args.nrover = 2
+    args.nrover = 1
     env = Task_Rovers(args)
     for i in range(20):
         # env.visualize()

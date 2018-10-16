@@ -4,7 +4,7 @@ import numpy as np
 import math
 from grid import * 
 import time
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
 class Qlearn:
 
@@ -61,9 +61,20 @@ class Qlearn:
                 action[i] = [0, -1]
         return direct, action
     
+    def eval(self, niter):
+        mem_buff = np.zeros(niter)
+        for i in range(niter):
+            done = False
+            self.env.reset()
+            while not done:
+                direct, action = self.get_action(self.env.rover_pos, self.env.target_pos)
+                done = self.env.step(action)
+            mem_buff[i] = self.env.timestep
+        return mem_buff
+
     def train(self, niter, filename = "Qtest.npy"):
-        mem_buff = np.zeros(100)
-        mem_iter = 0
+        eval_score = np.zeros(int(niter / 100))
+        eval_iter = 0
         # Initialize data structs
         rov_old = [[0, 0] for i in range(self.env.nrover)]
         rov_new = [[0, 0] for i in range(self.env.nrover)]
@@ -100,26 +111,32 @@ class Qlearn:
                     Qold[i] = self.Qtable[i][Qxold[i], Qyold[i], direct[i]]
                     self.Qtable[i][Qxold[i], Qyold[i], direct[i]] = (1 - self.alpha) * Qold[i] + self.alpha \
                             * (reward[i] + self.gamma * nextQmax[i])
-            mem_buff[mem_iter] = self.env.timestep
-            # print(mem_iter)
-            mem_iter += 1
             if n % 100 == 0:
-                s = 'Iter: ' + str(n) + '\tMean: ' + str(np.mean(mem_buff)) + '\t Var: ' + str(np.var(mem_buff))
+                evals = self.eval(1000)
+                eval_score[eval_iter] = np.mean(self.eval(100))
+                s = 'Iter: ' + str(n) + '\tMean: ' + str(eval_score[eval_iter]) + '\t Var: ' + str(np.var(evals))
                 print(s)
-                # print(mem_buff)
-                mem_buff = np.zeros(100)
-                mem_iter = 0
+                eval_iter += 1
             if n % 1000 == 0:
                 np.save(filename, self.Qtable)
+        return eval_score
                 
 
 if __name__ == '__main__':
+    t1 = time.time()
     args = Parameters()
-    args.nrover = 2
+    args.nrover = 1
     print("Training enviroment with " + str(args.nrover) + " agents")
     env = Task_Rovers(args)
     learn = Qlearn(env)
-    learn.train(50000, "QtestMultiSum.npy")
+    eval_scores = learn.train(100000, "SingleSum.npy")
+    np.save("multi_eval.npy", eval_scores)
+    plt.plot(eval_scores)
+    # plt.show()
+    # plt.ylim(top=50)
+    plt.savefig("SingleAgent.png")
+    
+
 
 
 
